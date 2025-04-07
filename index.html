@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>檔案查詢系統</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- 添加 SheetJS 庫 -->
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="tabs-container">
+            <!-- 標籤頁導航 -->
+            <div class="tabs-nav">
+                <button class="tab-button active" data-tab="file-search">
+                    📄 檔案查詢
+                </button>
+                <button class="tab-button" data-tab="buyer-notice">
+                    🏠 買家提醒
+                </button>
+                <button class="tab-button" data-tab="buyer-notice-manual">
+                    📊 買家提醒(未有excel)
+                </button>
+                <button class="tab-button" data-tab="whatsapp">
+                    💬 WhatsApp
+                </button>
+                <button class="tab-button" data-tab="owner-notice">
+                    📋 業主提醒
+                </button>
+                <button class="tab-button" data-tab="settings">
+                    ⚙️ 設置
+                </button>
+            </div>
+
+            <!-- 檔案查詢標籤頁 -->
+            <div class="tab-content active" id="file-search">
+                <div class="search-container">
+                    <div class="input-group">
+                        <input type="text" 
+                               id="ref-number" 
+                               placeholder="輸入5-6位檔案編號" 
+                               pattern="[0-9]{5,6}" 
+                               title="請輸入5-6位數字">
+                        <button onclick="searchRef()">檔案查詢</button>
+                    </div>
+                    <div id="search-result" class="search-result"></div>
+
+                    <div class="input-group">
+                        <input type="tel" 
+                               id="search-phone" 
+                               placeholder="輸入電話號碼" 
+                               pattern="[0-9]+"
+                               title="請輸入數字">
+                        <button onclick="searchByPhone()">電話查詢</button>
+                    </div>
+                    <div id="phone-search-result" class="search-result"></div>
+
+                    <div class="input-group">
+                        <input type="text" 
+                               id="search-client" 
+                               placeholder="輸入客戶姓名">
+                        <button onclick="searchByClient()">客戶查詢</button>
+                    </div>
+                    <div id="client-search-result" class="search-result"></div>
+
+                    <div class="input-group">
+                        <input type="text" 
+                               id="search-property" 
+                               placeholder="輸入物業資料">
+                        <button onclick="searchByProperty()">物業查詢</button>
+                    </div>
+                    <div id="property-search-result" class="search-result"></div>
+
+                    <button onclick="refreshData()" class="refresh-button">
+                        <span class="refresh-icon">🔄</span> 更新數據
+                    </button>
+                </div>
+            </div>
+
+            <!-- 買家提醒標籤頁 -->
+            <div class="tab-content" id="buyer-notice">
+                <div class="input-group">
+                    <input type="text" 
+                           id="ref-number-u" 
+                           placeholder="輸入5-6位檔案編號" 
+                           pattern="[0-9]{5,6}" 
+                           title="請輸入5-6位數字">
+                    <button onclick="searchRefU()">查詢</button>
+                </div>
+                <div id="search-result-u" class="search-result"></div>
+            </div>
+
+            <!-- 買家提醒(未有excel)標籤頁 -->
+            <div class="tab-content" id="buyer-notice-manual">
+                <div class="manual-price-container">
+                    <div class="input-group">
+                        <label>樓價：</label>
+                        <input type="number" 
+                               id="manual-price" 
+                               placeholder="輸入樓價"
+                               min="0"
+                               step="1">
+                    </div>
+                    <div class="input-group">
+                        <label>律師費定金：</label>
+                        <input type="number" 
+                               id="manual-lawyer-fee" 
+                               value="5000"
+                               min="0"
+                               step="1">
+                    </div>
+                    <div class="input-group">
+                        <label>加訂：</label>
+                        <input type="number" 
+                               id="manual-further-deposit" 
+                               value="0"
+                               min="0"
+                               step="1">
+                    </div>
+                    <div class="input-group">
+                        <label>契費金額：</label>
+                        <input type="number" 
+                               id="manual-deed-fee" 
+                               value="0"
+                               min="0"
+                               step="1">
+                    </div>
+                    <button onclick="calculateManualPrice()">計算</button>
+                    <div class="result-container">
+                        <pre class="manual-buyer-notice"></pre>
+                        <button onclick="copyToClipboard('manual-buyer-notice')" class="copy-button" style="display: none;">複製買家須知</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WhatsApp標籤頁 -->
+            <div class="tab-content" id="whatsapp">
+                <div class="whatsapp-container">
+                    <div class="input-group">
+                        <input type="tel" 
+                               id="phone-number" 
+                               placeholder="輸入電話號碼" 
+                               pattern="[0-9]+"
+                               title="請輸入數字">
+                        <button onclick="openWhatsApp()" class="whatsapp-button">開始聊天</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 業主提醒標籤頁 -->
+            <div class="tab-content" id="owner-notice">
+                <div class="owner-notice-container">
+                    <pre class="owner-notice">業主所需文件(請儘量準備，如找不到可免）:
+1.	身分證
+2.	管理費單(最近一期)
+3.	管理費按金單正本(如有)
+4.	差餉地租單(最近一期)
+5.	銀行供款單(最近一期，如沒按揭不需要)
+6.	樓契(如沒按揭)
+7.	租約正本(如有)
+8.	車卡(如為車位)
+9.	臨時買賣合約正本（如有）</pre>
+                    <button onclick="copyToClipboard('owner-notice')" class="copy-button">複製業主提醒</button>
+                </div>
+            </div>
+
+            <!-- 設置標籤頁 -->
+            <div class="tab-content" id="settings">
+                <div class="settings-container">
+                    <div class="input-group">
+                        <label>Excel 文件路徑：</label>
+                        <input type="text" 
+                               id="excel-path" 
+                               placeholder="請選擇 Excel 文件路徑"
+                               readonly>
+                        <button onclick="selectExcelFile()" class="settings-button">選擇文件</button>
+                    </div>
+                    <div id="excel-status" class="status-message"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加隱藏的 WhatsApp 鏈接 -->
+    <a id="whatsapp-link" style="display: none;"></a>
+
+    <script>
+        // 標籤頁切換功能
+        document.addEventListener('DOMContentLoaded', () => {
+            const tabButtons = document.querySelectorAll('.tab-button');
+            const tabContents = document.querySelectorAll('.tab-content');
+
+            tabButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    // 移除所有活動狀態
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    tabContents.forEach(content => content.classList.remove('active'));
+
+                    // 添加新的活動狀態
+                    button.classList.add('active');
+                    const tabId = button.dataset.tab;
+                    document.getElementById(tabId).classList.add('active');
+
+                    // 保存當前標籤頁
+                    localStorage.setItem('lastTab', tabId);
+                });
+            });
+
+            // 恢復上次訪問的標籤頁
+            const lastTab = localStorage.getItem('lastTab');
+            if (lastTab) {
+                const tabButton = document.querySelector(`[data-tab="${lastTab}"]`);
+                if (tabButton) {
+                    tabButton.click();
+                }
+            }
+        });
+
+        // 原有的功能代碼保持不變
+        function openWhatsApp() {
+            const phoneNumber = document.getElementById('phone-number').value.replace(/\D/g, '');
+            if (phoneNumber) {
+                const whatsappUrl = `whatsapp://send?phone=852${phoneNumber}`;
+                const link = document.getElementById('whatsapp-link');
+                link.href = whatsappUrl;
+                link.click();
+            } else {
+                alert('請輸入有效的電話號碼');
+            }
+        }
+
+        // 添加輸入框的 Enter 鍵監聽
+        document.getElementById('phone-number').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                openWhatsApp();
+            }
+        });
+
+        // 防止頁面跳轉
+        document.getElementById('whatsapp-link').addEventListener('click', function(e) {
+            e.preventDefault();
+            const href = this.getAttribute('href');
+            if (href) {
+                const newWindow = window.open('', '_blank');
+                if (newWindow) {
+                    newWindow.close();
+                }
+                window.location.assign(href);
+            }
+        });
+
+        // API 基礎 URL
+        const API_BASE_URL = 'http://localhost:5001/api';
+
+        // 清除其他搜索結果的函數
+        function clearOtherSearchResults(exceptId) {
+            const resultDivs = [
+                'search-result',           // 檔案查詢結果
+                'phone-search-result',     // 電話查詢結果
+                'client-search-result',    // 客戶查詢結果
+                'property-search-result'   // 物業查詢結果
+            ];
+            
+            resultDivs.forEach(divId => {
+                if (divId !== exceptId) {
+                    const div = document.getElementById(divId);
+                    if (div) {
+                        div.innerHTML = '';
+                    }
+                }
+            });
+        }
+
+        // 修改搜索函數，加入清除其他結果的功能
+        async function searchRef() {
+            clearOtherSearchResults('search-result');
+            const refNumber = document.getElementById('ref-number').value.trim();
+            const resultDiv = document.getElementById('search-result');
+
+            // 驗證輸入格式
+            if (!/^\d{5,6}$/.test(refNumber)) {
+                resultDiv.textContent = '請輸入5-6位數字的檔案編號';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/search_u/${refNumber}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    if (data.found) {
+                        // 提取電話號碼用於 WhatsApp
+                        const phoneNumber = data.phone;
+                        
+                        // 創建可複製的文本區域和 WhatsApp 按鈕
+                        resultDiv.innerHTML = `
+                            <div class="result-container">
+                                ${phoneNumber ? `
+                                <div class="button-container">
+                                    <button onclick="openWhatsAppWithNumber('${phoneNumber}')" class="whatsapp-button">開始聊天</button>
+                                </div>
+                                ` : ''}
+                                <pre class="formatted-data">${data.value}</pre>
+                                <button onclick="copyToClipboard('formatted-data')" class="copy-button">複製資料</button>
+                            </div>
+                        `;
+
+                        // 保存數據到全局變量以供更新使用
+                        window.currentData = data;
+                    } else {
+                        resultDiv.textContent = data.message;
+                    }
+                } else {
+                    resultDiv.textContent = data.error || '查詢失敗';
+                }
+            } catch (error) {
+                resultDiv.textContent = '連接服務器失敗';
+                console.error('Error:', error);
+            }
+        }
+
+        // 使用指定號碼打開 WhatsApp
+        function openWhatsAppWithNumber(phoneNumber) {
+            const cleanNumber = phoneNumber.replace(/\D/g, '');
+            if (cleanNumber) {
+                const whatsappUrl = `whatsapp://send?phone=852${cleanNumber}`;
+                const link = document.getElementById('whatsapp-link');
+                link.href = whatsappUrl;
+                link.click();
+            } else {
+                alert('無效的電話號碼');
+            }
+        }
+
+        // 刷新數據
+        async function refreshData() {
+            const resultDiv = document.getElementById('search-result');
+            try {
+                const response = await fetch(`${API_BASE_URL}/refresh`);
+                const data = await response.json();
+                
+                resultDiv.textContent = data.message;
+                setTimeout(() => {
+                    if (resultDiv.textContent === data.message) {
+                        resultDiv.textContent = '';
+                    }
+                }, 2000);
+            } catch (error) {
+                resultDiv.textContent = '更新數據失敗';
+                console.error('Error:', error);
+            }
+        }
+
+        // 搜索U欄參考號碼
+        async function searchRefU() {
+            const refNumber = document.getElementById('ref-number-u').value;
+            const resultDiv = document.getElementById('search-result-u');
+            
+            if (!refNumber) {
+                resultDiv.textContent = '請輸入檔案編號';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/search_ref_u/${refNumber}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const lines = data.lines;
+                    const phoneNumber = data.phone;
+                    const cleanPrice = data.purchase_price;
+                    
+                    // 更新當前數據
+                    window.currentData = {
+                        ...data,
+                        deed_fee: 0,  // 初始契費為0
+                        phone: phoneNumber,  // 保存電話號碼
+                        purchase_price: cleanPrice,  // 清理後的樓價
+                        lawyer_fee: 5000,  // 初始律師費
+                        further_deposit: data.further_deposit || 0,  // 使用從服務器獲取的加訂金額
+                        ref_number: refNumber
+                    };
+                    window.currentLines = lines;
+                    
+                    // 顯示結果
+                    updateResultDisplay(resultDiv, lines, window.currentData);
+
+                    // 如果是買家，自動計算買家須知
+                    if (data.is_buyer) {
+                        // 延遲一下再調用 updateFees，確保 DOM 已經更新
+                        setTimeout(() => {
+                            updateFees('u');
+                        }, 100);
+                    }
+                } else {
+                    resultDiv.textContent = data.message || '找不到相關記錄';
+                }
+            } catch (error) {
+                resultDiv.textContent = '連接服務器失敗';
+                console.error('Error:', error);
+            }
+        }
+
+        // 更新顯示結果的函數
+        function updateResultDisplay(resultDiv, lines, data) {
+            resultDiv.innerHTML = `
+                <div class="result-container">
+                    ${data.phone ? `
+                    <div class="button-container">
+                        <button onclick="openWhatsAppWithNumber('${data.phone}')" class="whatsapp-button">開始聊天</button>
+                    </div>
+                    ` : ''}
+                    <pre class="formatted-data-u">${lines}</pre>
+                    <button onclick="copyToClipboard('formatted-data-u')" class="copy-button">複製資料</button>
+                </div>
+                <div class="result-container" style="margin-top: 20px;">
+                    <div style="margin-bottom: 20px;">
+                        <div style="display: flex; margin-bottom: 10px;">
+                            <label style="width: 120px;">律師費定金：</label>
+                            <input type="number" 
+                                   id="lawyer-fee-u" 
+                                   value="${data.lawyer_fee || 5000}"
+                                   min="0"
+                                   step="1"
+                                   style="width: 200px; padding: 5px;">
+                        </div>
+                        <div style="display: flex; margin-bottom: 10px;">
+                            <label style="width: 120px;">加訂：</label>
+                            <input type="number" 
+                                   id="further-deposit-u" 
+                                   value="${data.further_deposit || 0}"
+                                   min="0"
+                                   step="1"
+                                   style="width: 200px; padding: 5px;">
+                        </div>
+                        <div style="display: flex; margin-bottom: 10px;">
+                            <label style="width: 120px;">契費金額：</label>
+                            <input type="number" 
+                                   id="deed-fee-u" 
+                                   value="${data.deed_fee || 0}"
+                                   min="0"
+                                   step="1"
+                                   style="width: 200px; padding: 5px;">
+                        </div>
+                        <button onclick="updateFees('u')" 
+                                style="width: 100%; padding: 8px; margin-top: 10px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            更新
+                        </button>
+                    </div>
+                    ${data.buyer_notice ? `
+                    <pre class="buyer-notice">${data.buyer_notice}</pre>
+                    <button onclick="copyToClipboard('buyer-notice')" class="copy-button">複製買家須知</button>
+                    ` : ''}
+                </div>
+            `;
+
+            // 添加Enter鍵監聽
+            document.getElementById('lawyer-fee-u')?.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    updateFees('u');
+                }
+            });
+
+            document.getElementById('further-deposit-u')?.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    updateFees('u');
+                }
+            });
+
+            document.getElementById('deed-fee-u')?.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    updateFees('u');
+                }
+            });
+        }
+
+        // 更新費用
+        function updateFees(type) {
+            if (!window.currentData) {
+                console.error('沒有當前數據');
+                return;
+            }
+            
+            const lawyerFee = document.getElementById('lawyer-fee-u').value || 5000;
+            const deedFee = document.getElementById('deed-fee-u').value || 0;
+            const furtherDeposit = document.getElementById('further-deposit-u').value || 0;
+            
+            console.log('正在更新費用：', { lawyerFee, deedFee, furtherDeposit });
+            console.log('當前數據:', window.currentData);
+            
+            // 發送更新請求到服務器
+            fetch(`${API_BASE_URL}/update_amounts`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    purchase_price: window.currentData.purchase_price || 0,
+                    further_deposit: furtherDeposit,
+                    deed_fee: deedFee,
+                    lawyer_fee: lawyerFee,
+                    ref_number: window.currentData.ref_number
+                })
+            })
+            .then(response => {
+                console.log('服務器響應狀態:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('服務器返回數據:', data);
+                if (data.success) {
+                    // 更新當前數據
+                    window.currentData = {
+                        ...window.currentData,
+                        buyer_notice: data.formatted_notice,
+                        total_amount: data.total_amount,
+                        deed_fee: deedFee,
+                        lawyer_fee: lawyerFee,
+                        further_deposit: furtherDeposit
+                    };
+
+                    // 更新顯示
+                    const resultDiv = document.getElementById('search-result-u');
+                    const buyerNoticeDiv = resultDiv.querySelector('.buyer-notice');
+                    if (buyerNoticeDiv) {
+                        buyerNoticeDiv.textContent = data.formatted_notice;
+                    } else {
+                        // 如果買家須知區域不存在，重新渲染整個結果
+                        updateResultDisplay(resultDiv, window.currentLines, window.currentData);
+                    }
+                } else {
+                    alert(data.message || '更新失敗，請重試');
+                }
+            })
+            .catch(error => {
+                console.error('更新失敗:', error);
+                alert('更新失敗，請重試');
+            });
+        }
+
+        // 修改手動計算樓價相關費用函數
+        function calculateManualPrice() {
+            const price = document.getElementById('manual-price').value;
+            if (!price || price <= 0) {
+                alert('請輸入有效的樓價');
+                return;
+            }
+
+            const lawyerFee = document.getElementById('manual-lawyer-fee').value || 5000;
+            const deedFee = document.getElementById('manual-deed-fee').value || 0;
+            const furtherDeposit = document.getElementById('manual-further-deposit').value || 0;
+            
+            // 發送到服務器計算
+            fetch(`${API_BASE_URL}/update_amounts`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    purchase_price: price,
+                    further_deposit: furtherDeposit,
+                    deed_fee: deedFee,
+                    lawyer_fee: lawyerFee
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // 更新買家須知顯示
+                    const noticeElement = document.querySelector('.manual-buyer-notice');
+                    noticeElement.textContent = data.formatted_notice;
+                    
+                    // 顯示複製按鈕
+                    const copyButton = document.querySelector('.manual-buyer-notice').nextElementSibling;
+                    copyButton.style.display = 'block';
+                } else {
+                    alert(data.message || '計算失敗，請重試');
+                }
+            })
+            .catch(error => {
+                console.error('計算失敗:', error);
+                alert('計算失敗，請重試');
+            });
+        }
+
+        // 複製到剪貼板功能
+        function copyToClipboard(className) {
+            const formattedData = document.querySelector('.' + className).textContent;
+            navigator.clipboard.writeText(formattedData).then(() => {
+                const copyButton = document.querySelector('.' + className).nextElementSibling;
+                const originalText = copyButton.textContent;
+                copyButton.textContent = '已複製！';
+                setTimeout(() => {
+                    copyButton.textContent = originalText;
+                }, 2000);
+            }).catch(err => {
+                console.error('複製失敗:', err);
+            });
+        }
+
+        // 添加客戶姓名搜尋的 Enter 鍵支持
+        document.getElementById('search-client').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                searchByClient();
+            }
+        });
+
+        // 添加物業資料搜尋的 Enter 鍵支持
+        document.getElementById('search-property').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                searchByProperty();
+            }
+        });
+
+        // 添加電話號碼搜尋的 Enter 鍵支持
+        document.getElementById('search-phone').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                searchByPhone();
+            }
+        });
+
+        // 添加手動樓價計算的 Enter 鍵支持
+        document.getElementById('manual-price').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                calculateManualPrice();
+            }
+        });
+
+        // 頁面加載時刷新數據
+        window.addEventListener('load', refreshData);
+
+        // 搜索電話號碼
+        async function searchByPhone() {
+            clearOtherSearchResults('phone-search-result');
+            const phone = document.getElementById('search-phone').value.trim();
+            const resultDiv = document.getElementById('phone-search-result');
+
+            if (!phone) {
+                resultDiv.textContent = '請輸入電話號碼';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/search_phone/${phone}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    if (data.results && data.results.length > 0) {
+                        resultDiv.innerHTML = data.results.map(result => `
+                            <div class="result-container">
+                                ${result.phone ? `
+                                <div class="button-container">
+                                    <button onclick="openWhatsAppWithNumber('${result.phone}')" class="whatsapp-button">開始聊天</button>
+                                </div>
+                                ` : ''}
+                                <pre class="formatted-data">${result.value}</pre>
+                                <button onclick="copyToClipboard('formatted-data')" class="copy-button">複製資料</button>
+                            </div>
+                        `).join('');
+                    } else {
+                        resultDiv.textContent = '找不到相關記錄';
+                    }
+                } else {
+                    resultDiv.textContent = data.error || '查詢失敗';
+                }
+            } catch (error) {
+                resultDiv.textContent = '連接服務器失敗';
+                console.error('Error:', error);
+            }
+        }
+
+        // 搜索客戶姓名
+        async function searchByClient() {
+            clearOtherSearchResults('client-search-result');
+            const client = document.getElementById('search-client').value.trim();
+            const resultDiv = document.getElementById('client-search-result');
+
+            if (!client) {
+                resultDiv.textContent = '請輸入客戶姓名';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/search_client/${encodeURIComponent(client)}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    if (data.results && data.results.length > 0) {
+                        resultDiv.innerHTML = data.results.map(result => `
+                            <div class="result-container">
+                                ${result.phone ? `
+                                <div class="button-container">
+                                    <button onclick="openWhatsAppWithNumber('${result.phone}')" class="whatsapp-button">開始聊天</button>
+                                </div>
+                                ` : ''}
+                                <pre class="formatted-data">${result.value}</pre>
+                                <button onclick="copyToClipboard('formatted-data')" class="copy-button">複製資料</button>
+                            </div>
+                        `).join('');
+                    } else {
+                        resultDiv.textContent = '找不到相關記錄';
+                    }
+                } else {
+                    resultDiv.textContent = data.error || '查詢失敗';
+                }
+            } catch (error) {
+                resultDiv.textContent = '連接服務器失敗';
+                console.error('Error:', error);
+            }
+        }
+
+        // 搜索物業資料
+        async function searchByProperty() {
+            clearOtherSearchResults('property-search-result');
+            const property = document.getElementById('search-property').value.trim();
+            const resultDiv = document.getElementById('property-search-result');
+
+            if (!property) {
+                resultDiv.textContent = '請輸入物業資料';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/search_property/${encodeURIComponent(property)}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    if (data.results && data.results.length > 0) {
+                        resultDiv.innerHTML = data.results.map(result => `
+                            <div class="result-container">
+                                ${result.phone ? `
+                                <div class="button-container">
+                                    <button onclick="openWhatsAppWithNumber('${result.phone}')" class="whatsapp-button">開始聊天</button>
+                                </div>
+                                ` : ''}
+                                <pre class="formatted-data">${result.value}</pre>
+                                <button onclick="copyToClipboard('formatted-data')" class="copy-button">複製資料</button>
+                            </div>
+                        `).join('');
+                    } else {
+                        resultDiv.textContent = '找不到相關記錄';
+                    }
+                } else {
+                    resultDiv.textContent = data.error || '查詢失敗';
+                }
+            } catch (error) {
+                resultDiv.textContent = '連接服務器失敗';
+                console.error('Error:', error);
+            }
+        }
+
+        // 檢查 Excel 配置
+        async function checkExcelConfig() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/config`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const pathInput = document.getElementById('excel-path');
+                    const statusDiv = document.getElementById('excel-status');
+                    
+                    pathInput.value = data.config.excel_path || '';
+                    
+                    if (data.excel_exists) {
+                        statusDiv.textContent = 'Excel 文件已配置並可訪問';
+                        statusDiv.className = 'status-message success';
+                    } else if (data.config.excel_path) {
+                        statusDiv.textContent = 'Excel 文件路徑無效';
+                        statusDiv.className = 'status-message error';
+                    } else {
+                        statusDiv.textContent = '請配置 Excel 文件路徑';
+                        statusDiv.className = 'status-message warning';
+                    }
+                }
+            } catch (error) {
+                console.error('檢查配置失敗:', error);
+            }
+        }
+
+        // 選擇 Excel 文件
+        async function selectExcelFile() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.xlsx,.xls';
+            
+            input.onchange = async function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    console.log('Selected file:', file);
+                    
+                    // 創建 FormData 對象
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    
+                    try {
+                        const response = await fetch(`${API_BASE_URL}/upload_excel`, {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        console.log('Server response status:', response.status);
+                        const data = await response.json();
+                        console.log('Server response:', data);
+                        
+                        if (data.success) {
+                            checkExcelConfig();
+                            refreshData();
+                        } else {
+                            alert(data.message || '更新配置失敗');
+                        }
+                    } catch (error) {
+                        console.error('更新配置失敗:', error);
+                        alert('更新配置失敗');
+                    }
+                }
+            };
+            
+            input.click();
+        }
+
+        // 頁面加載時檢查配置
+        window.addEventListener('load', () => {
+            checkExcelConfig();
+            refreshData();
+        });
+    </script>
+</body>
+</html> 
