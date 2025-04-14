@@ -28,6 +28,9 @@
                 <button class="tab-button" data-tab="owner-notice">
                     📋 業主提醒
                 </button>
+                <button class="tab-button" data-tab="calendar">
+                    📅 日曆
+                </button>
                 <button class="tab-button" data-tab="settings">
                     ⚙️ 設置
                 </button>
@@ -165,6 +168,74 @@
                 </div>
             </div>
 
+            <!-- 日曆標籤頁 -->
+            <div class="tab-content" id="calendar">
+                <div class="calendar-container">
+                    <!-- 月曆視圖 -->
+                    <div class="calendar-view">
+                        <div class="calendar-header">
+                            <button id="prev-month">◀</button>
+                            <div class="calendar-title">
+                                <h2 id="current-month">2024年3月</h2>
+                                <div class="view-switcher">
+                                    <button class="view-btn active" data-view="month">月</button>
+                                    <button class="view-btn" data-view="week">週</button>
+                                    <button class="view-btn" data-view="day">日</button>
+                                </div>
+                            </div>
+                            <button id="next-month">▶</button>
+                        </div>
+                        <div id="calendar-grid" class="calendar-grid">
+                            <!-- 日曆格子將由JavaScript動態生成 -->
+                        </div>
+                    </div>
+                    
+                    <!-- 任務列表視圖 -->
+                    <div class="task-list-view">
+                        <div class="task-filters">
+                            <button class="filter-btn active" data-filter="all">全部</button>
+                            <button class="filter-btn" data-filter="with-date">有日期</button>
+                            <button class="filter-btn" data-filter="without-date">待辦事項</button>
+                        </div>
+                        <div class="task-list" id="task-list">
+                            <!-- 任務列表將由JavaScript動態生成 -->
+                        </div>
+                        <!-- 添加任務按鈕 -->
+                        <button class="add-task-btn" onclick="showAddTaskModal()">+ 添加任務</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 添加任務模態框 -->
+            <div id="add-task-modal" class="modal">
+                <div class="modal-content">
+                    <span class="close" onclick="hideAddTaskModal()">&times;</span>
+                    <h2 id="modal-title">添加任務</h2>
+                    <div class="input-group">
+                        <label>檔案編號：</label>
+                        <input type="text" id="task-file-number" placeholder="輸入檔案編號">
+                    </div>
+                    <div class="input-group">
+                        <label>任務內容：</label>
+                        <div class="quick-buttons">
+                            <button class="quick-btn" onclick="setTaskContent('合約')">合約</button>
+                            <button class="quick-btn" onclick="setTaskContent('成交')">成交</button>
+                            <button class="quick-btn" onclick="setTaskContent('會面')">會面</button>
+                        </div>
+                        <textarea id="task-content" placeholder="輸入任務內容"></textarea>
+                    </div>
+                    <div class="input-group">
+                        <label>截止日期：</label>
+                        <input type="date" id="task-due-date">
+                    </div>
+                    <div class="input-group">
+                        <label>截止時間：</label>
+                        <input type="time" id="task-due-time">
+                    </div>
+                    <button id="save-task-btn" onclick="saveTask()">保存</button>
+                </div>
+            </div>
+
             <!-- 設置標籤頁 -->
             <div class="tab-content" id="settings">
                 <div class="settings-container">
@@ -186,36 +257,234 @@
     <a id="whatsapp-link" style="display: none;"></a>
 
     <script>
-        // 標籤頁切換功能
-        document.addEventListener('DOMContentLoaded', () => {
-            const tabButtons = document.querySelectorAll('.tab-button');
-            const tabContents = document.querySelectorAll('.tab-content');
-
-            tabButtons.forEach(button => {
+        // 初始化所有標籤頁
+        document.querySelectorAll('.tab-button').forEach(button => {
                 button.addEventListener('click', () => {
-                    // 移除所有活動狀態
-                    tabButtons.forEach(btn => btn.classList.remove('active'));
-                    tabContents.forEach(content => content.classList.remove('active'));
+                const tabId = button.getAttribute('data-tab');
+                showTab(tabId);
+            });
+        });
 
-                    // 添加新的活動狀態
-                    button.classList.add('active');
-                    const tabId = button.dataset.tab;
-                    document.getElementById(tabId).classList.add('active');
+        // 顯示第一個標籤頁
+        showTab('file-search');
 
-                    // 保存當前標籤頁
-                    localStorage.setItem('lastTab', tabId);
-                });
+        // 日曆相關功能
+        let currentDate = new Date();
+        let currentView = 'month';
+
+        function showTab(tabId) {
+            // 隱藏所有標籤頁內容
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.style.display = 'none';
+            });
+            
+            // 移除所有按鈕的active類
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            
+            // 顯示選中的標籤頁內容
+            document.getElementById(tabId).style.display = 'block';
+            
+            // 為選中的按鈕添加active類
+            document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+
+            // 如果是日曆標籤頁，初始化日曆
+            if (tabId === 'calendar') {
+                initializeCalendar();
+            }
+        }
+
+        // 初始化日曆
+        function initializeCalendar() {
+            const calendarView = document.querySelector('.calendar-grid');
+            const calendarHeader = document.querySelector('.calendar-header h2');
+            if (!calendarView || !calendarHeader) return;
+
+            // 更新月份標題
+            updateCalendarTitle();
+
+            // 清空現有內容
+            calendarView.innerHTML = '';
+
+            // 根據當前視圖顯示不同的日曆格式
+            switch(currentView) {
+                case 'month':
+                    showMonthView();
+                    break;
+                case 'week':
+                    showWeekView();
+                    break;
+                case 'day':
+                    showDayView();
+                    break;
+            }
+
+            // 加載任務
+            loadTasks();
+        }
+
+        function updateCalendarTitle() {
+            const monthNames = ['一月', '二月', '三月', '四月', '五月', '六月', 
+                               '七月', '八月', '九月', '十月', '十一月', '十二月'];
+            const weekDays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+            const titleElement = document.querySelector('.calendar-header h2');
+            
+            switch(currentView) {
+                case 'month':
+                    titleElement.textContent = `${currentDate.getFullYear()}年 ${monthNames[currentDate.getMonth()]}`;
+                    break;
+                case 'week':
+                    const weekStart = new Date(currentDate);
+                    weekStart.setDate(currentDate.getDate() - currentDate.getDay());
+                    const weekEnd = new Date(weekStart);
+                    weekEnd.setDate(weekStart.getDate() + 6);
+                    titleElement.textContent = `${weekStart.getFullYear()}年 ${monthNames[weekStart.getMonth()]} ${weekStart.getDate()}日 - ${weekEnd.getDate()}日`;
+                    break;
+                case 'day':
+                    titleElement.textContent = `${currentDate.getFullYear()}年 ${monthNames[currentDate.getMonth()]} ${currentDate.getDate()}日 ${weekDays[currentDate.getDay()]}`;
+                    break;
+            }
+        }
+
+        function showMonthView() {
+            const calendarView = document.querySelector('.calendar-grid');
+            calendarView.className = 'calendar-grid month-view';
+
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            // 添加星期標題
+            const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+            weekDays.forEach(day => {
+                const dayHeader = document.createElement('div');
+                dayHeader.className = 'calendar-header-day';
+                dayHeader.textContent = day;
+                calendarView.appendChild(dayHeader);
             });
 
-            // 恢復上次訪問的標籤頁
-            const lastTab = localStorage.getItem('lastTab');
-            if (lastTab) {
-                const tabButton = document.querySelector(`[data-tab="${lastTab}"]`);
-                if (tabButton) {
-                    tabButton.click();
+            // 添加日期格子
+            for (let i = 0; i < 42; i++) {
+                const dayDiv = document.createElement('div');
+                dayDiv.className = 'calendar-day';
+                
+                if (i >= firstDay && i < firstDay + daysInMonth) {
+                    const dayNumber = i - firstDay + 1;
+                    dayDiv.innerHTML = `
+                        <div class="calendar-day-number">${dayNumber}</div>
+                        <div class="calendar-day-tasks"></div>
+                    `;
+                    
+                    const now = new Date();
+                    if (dayNumber === now.getDate() && 
+                        month === now.getMonth() && 
+                        year === now.getFullYear()) {
+                        dayDiv.classList.add('today');
+                    }
                 }
+                
+                calendarView.appendChild(dayDiv);
             }
+        }
+
+        function showWeekView() {
+            const calendarView = document.querySelector('.calendar-grid');
+            calendarView.className = 'calendar-grid week-view';
+
+            // 獲取本週的起始日期
+            const weekStart = new Date(currentDate);
+            weekStart.setDate(currentDate.getDate() - currentDate.getDay());
+
+            // 添加星期標題
+            const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+            weekDays.forEach(day => {
+                const dayHeader = document.createElement('div');
+                dayHeader.className = 'calendar-header-day';
+                dayHeader.textContent = day;
+                calendarView.appendChild(dayHeader);
+            });
+
+            // 添加一週的日期格子
+            for (let i = 0; i < 7; i++) {
+                const currentDay = new Date(weekStart);
+                currentDay.setDate(weekStart.getDate() + i);
+                
+                const dayDiv = document.createElement('div');
+                dayDiv.className = 'calendar-day week-day';
+                dayDiv.innerHTML = `
+                    <div class="calendar-day-number">${currentDay.getDate()}</div>
+                    <div class="calendar-day-tasks"></div>
+                `;
+
+                const now = new Date();
+                if (currentDay.getDate() === now.getDate() && 
+                    currentDay.getMonth() === now.getMonth() && 
+                    currentDay.getFullYear() === now.getFullYear()) {
+                    dayDiv.classList.add('today');
+                }
+
+                calendarView.appendChild(dayDiv);
+            }
+        }
+
+        function showDayView() {
+            const calendarView = document.querySelector('.calendar-grid');
+            calendarView.className = 'calendar-grid day-view';
+
+            // 創建時間格子（每小時一格）
+            for (let hour = 0; hour < 24; hour++) {
+                const hourDiv = document.createElement('div');
+                hourDiv.className = 'calendar-hour';
+                hourDiv.innerHTML = `
+                    <div class="hour-label">${hour.toString().padStart(2, '0')}:00</div>
+                    <div class="hour-tasks"></div>
+                `;
+                calendarView.appendChild(hourDiv);
+            }
+        }
+
+        // 添加視圖切換按鈕事件監聽
+        document.querySelectorAll('.view-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                currentView = button.dataset.view;
+                initializeCalendar();
+            });
         });
+
+        // 修改月份切換按鈕事件
+        document.querySelector('#prev-month').onclick = () => {
+            switch(currentView) {
+                case 'month':
+                    currentDate.setMonth(currentDate.getMonth() - 1);
+                    break;
+                case 'week':
+                    currentDate.setDate(currentDate.getDate() - 7);
+                    break;
+                case 'day':
+                    currentDate.setDate(currentDate.getDate() - 1);
+                    break;
+            }
+            initializeCalendar();
+        };
+
+        document.querySelector('#next-month').onclick = () => {
+            switch(currentView) {
+                case 'month':
+                    currentDate.setMonth(currentDate.getMonth() + 1);
+                    break;
+                case 'week':
+                    currentDate.setDate(currentDate.getDate() + 7);
+                    break;
+                case 'day':
+                    currentDate.setDate(currentDate.getDate() + 1);
+                    break;
+            }
+            initializeCalendar();
+        };
 
         // 原有的功能代碼保持不變
         function openWhatsApp() {
@@ -300,6 +569,7 @@
                                 ${phoneNumber ? `
                                 <div class="button-container">
                                     <button onclick="openWhatsAppWithNumber('${phoneNumber}')" class="whatsapp-button">開始聊天</button>
+                                    <button onclick="showAddTaskModalWithRef('${refNumber}')" class="task-button">📝 添加任務</button>
                                 </div>
                                 ` : ''}
                                 <pre class="formatted-data">${data.value}</pre>
@@ -357,16 +627,16 @@
         async function searchRefU() {
             const refNumber = document.getElementById('ref-number-u').value;
             const resultDiv = document.getElementById('search-result-u');
-            
+
             if (!refNumber) {
                 resultDiv.textContent = '請輸入檔案編號';
                 return;
             }
-            
+
             try {
                 const response = await fetch(`${API_BASE_URL}/search_ref_u/${refNumber}`);
                 const data = await response.json();
-                
+
                 if (data.success) {
                     const lines = data.lines;
                     const phoneNumber = data.phone;
@@ -405,11 +675,12 @@
 
         // 更新顯示結果的函數
         function updateResultDisplay(resultDiv, lines, data) {
-            resultDiv.innerHTML = `
-                <div class="result-container">
-                    ${data.phone ? `
-                    <div class="button-container">
-                        <button onclick="openWhatsAppWithNumber('${data.phone}')" class="whatsapp-button">開始聊天</button>
+                resultDiv.innerHTML = `
+                    <div class="result-container">
+                        ${data.phone ? `
+                        <div class="button-container">
+                            <button onclick="openWhatsAppWithNumber('${data.phone}')" class="whatsapp-button">開始聊天</button>
+                        <button onclick="showAddTaskModalWithRef('${data.ref_number}')" class="task-button">📝 添加任務</button>
                     </div>
                     ` : ''}
                     <pre class="formatted-data-u">${lines}</pre>
@@ -660,6 +931,7 @@
                                 ${result.phone ? `
                                 <div class="button-container">
                                     <button onclick="openWhatsAppWithNumber('${result.phone}')" class="whatsapp-button">開始聊天</button>
+                                    <button onclick="showAddTaskModalWithRef('${result.ref_number}')" class="task-button">📝 添加任務</button>
                                 </div>
                                 ` : ''}
                                 <pre class="formatted-data">${result.value}</pre>
@@ -700,6 +972,7 @@
                                 ${result.phone ? `
                                 <div class="button-container">
                                     <button onclick="openWhatsAppWithNumber('${result.phone}')" class="whatsapp-button">開始聊天</button>
+                                    <button onclick="showAddTaskModalWithRef('${result.ref_number}')" class="task-button">📝 添加任務</button>
                                 </div>
                                 ` : ''}
                                 <pre class="formatted-data">${result.value}</pre>
@@ -740,6 +1013,7 @@
                                 ${result.phone ? `
                                 <div class="button-container">
                                     <button onclick="openWhatsAppWithNumber('${result.phone}')" class="whatsapp-button">開始聊天</button>
+                                    <button onclick="showAddTaskModalWithRef('${result.ref_number}')" class="task-button">📝 添加任務</button>
                                 </div>
                                 ` : ''}
                                 <pre class="formatted-data">${result.value}</pre>
@@ -832,6 +1106,423 @@
             checkExcelConfig();
             refreshData();
         });
+
+        // 任務管理相關功能
+        let tasks = [];
+
+        let currentTaskId = null;
+
+        // 顯示添加任務模態框
+        function showAddTaskModal(task = null) {
+            const modal = document.getElementById('add-task-modal');
+            const title = document.getElementById('modal-title');
+            const fileNumber = document.getElementById('task-file-number');
+            const taskContent = document.getElementById('task-content');
+            const dueDate = document.getElementById('task-due-date');
+            const dueTime = document.getElementById('task-due-time');
+            const saveBtn = document.getElementById('save-task-btn');
+
+            if (task) {
+                // 編輯模式
+                title.textContent = '編輯任務';
+                currentTaskId = task.id;
+                fileNumber.value = task.file_number;
+                taskContent.value = task.task_content;
+                dueDate.value = task.due_date || '';
+                dueTime.value = task.due_time || '';
+                saveBtn.textContent = '更新';
+            } else {
+                // 添加模式
+                title.textContent = '添加任務';
+                currentTaskId = null;
+                fileNumber.value = '';
+                taskContent.value = '';
+                dueDate.value = '';
+                dueTime.value = '';
+                saveBtn.textContent = '保存';
+            }
+
+            modal.style.display = 'block';
+        }
+
+        // 隱藏添加任務模態框
+        function hideAddTaskModal() {
+            document.getElementById('add-task-modal').style.display = 'none';
+        }
+
+        // 保存任務（添加或更新）
+        async function saveTask() {
+            const fileNumber = document.getElementById('task-file-number').value.trim();
+            const taskContent = document.getElementById('task-content').value.trim();
+            const dueDate = document.getElementById('task-due-date').value;
+            const dueTime = document.getElementById('task-due-time').value;
+
+            if (!fileNumber || !taskContent) {
+                alert('請填寫檔案編號和任務內容');
+                return;
+            }
+
+            try {
+                const url = currentTaskId 
+                    ? `${API_BASE_URL}/tasks/${currentTaskId}`
+                    : `${API_BASE_URL}/tasks`;
+                
+                const method = currentTaskId ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        file_number: fileNumber,
+                        task_content: taskContent,
+                        due_date: dueDate || null,
+                        due_time: dueTime || null
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    hideAddTaskModal();
+                    loadTasks();
+                } else {
+                    alert(data.error || '保存任務失敗');
+                }
+            } catch (error) {
+                console.error('保存任務失敗:', error);
+                alert('保存任務失敗');
+            }
+        }
+
+        // 加載任務
+        async function loadTasks() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/tasks`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    tasks = data.tasks;
+                    updateTaskDisplay();
+                    updateCalendarTasks();
+                } else {
+                    console.error('加載任務失敗:', data.error);
+                }
+            } catch (error) {
+                console.error('加載任務失敗:', error);
+            }
+        }
+
+        // 更新任務顯示
+        function updateTaskDisplay() {
+            const taskList = document.getElementById('task-list');
+            if (!taskList) return;
+
+            // 獲取當前過濾器
+            const activeFilter = document.querySelector('.filter-btn.active').dataset.filter;
+            
+            // 過濾任務
+            let filteredTasks = tasks;
+            if (activeFilter === 'with-date') {
+                filteredTasks = tasks.filter(task => task.due_date);
+            } else if (activeFilter === 'without-date') {
+                filteredTasks = tasks.filter(task => !task.due_date);
+            }
+
+            // 顯示任務
+            taskList.innerHTML = filteredTasks.map(task => `
+                <div class="task-item">
+                    <div class="task-header">
+                        <div class="task-info">
+                            <div class="task-title-row">
+                                <span class="task-file-number">檔案編號: ${task.file_number}</span>
+                                <button onclick="searchFileByNumber('${task.file_number}', this.closest('.task-item'))" class="search-file-button">📄 檔案查詢</button>
+                            </div>
+                            ${task.due_date ? `<span class="task-date">日期: ${task.due_date}</span>` : ''}
+                            ${task.due_time ? `<span class="task-time">時間: ${task.due_time}</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="task-content">${task.task_content}</div>
+                    <div class="task-actions">
+                        <button onclick="editTask(${task.id})" class="edit-button">編輯</button>
+                        <button onclick="deleteTask(${task.id})" class="delete-button">刪除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 更新日曆任務顯示
+        function updateCalendarTasks() {
+            const calendarDays = document.querySelectorAll('.calendar-day');
+            const currentYear = currentDate.getFullYear();
+            const currentMonth = currentDate.getMonth();
+
+            calendarDays.forEach(day => {
+                const dayNumber = day.querySelector('.calendar-day-number')?.textContent;
+                if (!dayNumber) return;
+
+                const tasksForDay = tasks.filter(task => {
+                    if (!task.due_date) return false;
+                    const taskDate = new Date(task.due_date);
+                    return taskDate.getDate() === parseInt(dayNumber) && 
+                           taskDate.getMonth() === currentMonth &&
+                           taskDate.getFullYear() === currentYear;
+                });
+
+                const tasksContainer = day.querySelector('.calendar-day-tasks');
+                if (tasksContainer) {
+                    tasksContainer.innerHTML = tasksForDay.map(task => `
+                        <div class="calendar-day-task" onclick="showTaskDetails(${task.id}, event)">
+                            <div class="task-time">${task.due_time || ''}</div>
+                            <div class="task-brief">
+                                <span class="task-file-number">${task.file_number}</span>
+                                <span class="task-content-preview">${task.task_content}</span>
+                            </div>
+                        </div>
+                    `).join('');
+
+                    if (tasksForDay.length > 0) {
+                        day.classList.add('has-tasks');
+                    } else {
+                        day.classList.remove('has-tasks');
+                    }
+                }
+            });
+        }
+
+        // 添加任務詳細信息顯示功能
+        function showTaskDetails(taskId, event) {
+            event.stopPropagation();
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+
+            // 檢查是否已存在詳細信息彈窗
+            let detailsPopup = document.getElementById('task-details-popup');
+            if (!detailsPopup) {
+                detailsPopup = document.createElement('div');
+                detailsPopup.id = 'task-details-popup';
+                document.body.appendChild(detailsPopup);
+            }
+
+            // 設置彈窗位置
+            const rect = event.target.closest('.calendar-day-task').getBoundingClientRect();
+            detailsPopup.style.position = 'fixed';
+            detailsPopup.style.left = `${rect.left}px`;
+            detailsPopup.style.top = `${rect.bottom + 5}px`;
+
+            // 顯示任務詳細信息
+            detailsPopup.innerHTML = `
+                <div class="task-details-content">
+                    <div class="task-details-header">
+                        <span class="task-details-file">檔案編號: ${task.file_number}</span>
+                        <button onclick="searchFileByNumber('${task.file_number}', document.getElementById('task-details-popup'))" class="search-file-button">📄 檔案查詢</button>
+                    </div>
+                    <div class="task-details-time">
+                        ${task.due_date ? `日期: ${task.due_date}` : ''}
+                        ${task.due_time ? ` 時間: ${task.due_time}` : ''}
+                    </div>
+                    <div class="task-details-body">${task.task_content}</div>
+                    <div class="task-details-actions">
+                        <button onclick="editTask(${task.id})" class="edit-button">編輯</button>
+                        <button onclick="deleteTask(${task.id})" class="delete-button">刪除</button>
+                    </div>
+                </div>
+            `;
+
+            // 點擊其他地方關閉彈窗
+            document.addEventListener('click', closeTaskDetails);
+        }
+
+        function closeTaskDetails(event) {
+            const popup = document.getElementById('task-details-popup');
+            if (popup && !popup.contains(event.target)) {
+                popup.remove();
+                document.removeEventListener('click', closeTaskDetails);
+            }
+        }
+
+        // 刪除任務
+        async function deleteTask(taskId) {
+            if (!confirm('確定要刪除這個任務嗎？')) return;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    loadTasks();
+                } else {
+                    alert('刪除任務失敗');
+                }
+            } catch (error) {
+                console.error('刪除任務失敗:', error);
+                alert('刪除任務失敗');
+            }
+        }
+
+        // 添加過濾器按鈕事件
+        document.querySelectorAll('.filter-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                button.classList.add('active');
+                updateTaskDisplay();
+            });
+        });
+
+        // 設置任務內容的快捷按鈕功能
+        function setTaskContent(content) {
+            document.getElementById('task-content').value = content;
+        }
+
+        // 顯示添加任務模態框（帶檔案編號）
+        function showAddTaskModalWithRef(refNumber) {
+            document.getElementById('task-file-number').value = refNumber;
+            document.getElementById('add-task-modal').style.display = 'block';
+        }
+
+        function closeAddTaskModal() {
+            document.getElementById('add-task-modal').style.display = 'none';
+        }
+
+        function addTask() {
+            const fileNumber = document.getElementById('task-file-number').value;
+            const taskContent = document.getElementById('task-content').value;
+            const dueDate = document.getElementById('task-due-date').value;
+            const dueTime = document.getElementById('task-due-time').value;
+
+            if (!fileNumber || !taskContent) {
+                alert('請填寫檔案編號和任務內容');
+                return;
+            }
+
+            fetch(`${API_BASE_URL}/tasks`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    file_number: fileNumber,
+                    task_content: taskContent,
+                    due_date: dueDate,
+                    due_time: dueTime
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('任務已成功添加');
+                    closeAddTaskModal();
+                    loadTasks();
+                } else {
+                    alert('添加任務失敗：' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('添加任務時發生錯誤');
+            });
+        }
+
+        function displayTasks(tasks) {
+            const taskListContainer = document.getElementById('task-list');
+            taskListContainer.innerHTML = '';
+
+            tasks.forEach(task => {
+                const taskElement = document.createElement('div');
+                taskElement.className = 'task-item';
+                taskElement.innerHTML = `
+                    <div class="task-header">
+                        <div class="task-info">
+                            <div class="task-title-row">
+                                <span class="task-file-number">檔案編號: ${task.file_number}</span>
+                                <button onclick="searchFileByNumber('${task.file_number}', this.closest('.task-item'))" class="search-file-button">📄 檔案查詢</button>
+                            </div>
+                            ${task.due_date ? `<span class="task-date">日期: ${task.due_date}</span>` : ''}
+                            ${task.due_time ? `<span class="task-time">時間: ${task.due_time}</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="task-content">${task.task_content}</div>
+                    <div class="task-actions">
+                        <button onclick="editTask(${task.id})" class="edit-button">編輯</button>
+                        <button onclick="deleteTask(${task.id})" class="delete-button">刪除</button>
+                    </div>
+                `;
+                taskListContainer.appendChild(taskElement);
+            });
+        }
+
+        // 添加檔案查詢功能
+        async function searchFileByNumber(fileNumber, taskElement) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/search_u/${fileNumber}`);
+                const data = await response.json();
+
+                if (response.ok && data.found) {
+                    // 創建或獲取結果容器
+                    let resultContainer = taskElement.querySelector('.file-search-result');
+                    if (!resultContainer) {
+                        resultContainer = document.createElement('div');
+                        resultContainer.className = 'file-search-result';
+                        taskElement.appendChild(resultContainer);
+                    }
+
+                    // 顯示查詢結果
+                    resultContainer.innerHTML = `
+                        <div class="result-container">
+                            ${data.phone ? `
+                            <div class="button-container">
+                                <button onclick="openWhatsAppWithNumber('${data.phone}')" class="whatsapp-button">開始聊天</button>
+                            </div>
+                            ` : ''}
+                            <pre class="formatted-data">${data.value}</pre>
+                            <button onclick="copyToClipboard('formatted-data')" class="copy-button">複製資料</button>
+                        </div>
+                    `;
+                } else {
+                    alert('找不到相關記錄');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('查詢失敗');
+            }
+        }
+
+        // 編輯任務
+        function editTask(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) {
+                alert('找不到任務');
+                return;
+            }
+
+            const modal = document.getElementById('add-task-modal');
+            const title = document.getElementById('modal-title');
+            const fileNumber = document.getElementById('task-file-number');
+            const taskContent = document.getElementById('task-content');
+            const dueDate = document.getElementById('task-due-date');
+            const dueTime = document.getElementById('task-due-time');
+            const saveBtn = document.getElementById('save-task-btn');
+
+            // 設置模態框標題和按鈕文字
+            title.textContent = '編輯任務';
+            saveBtn.textContent = '更新';
+
+            // 填充表單數據
+            fileNumber.value = task.file_number;
+            taskContent.value = task.task_content;
+            dueDate.value = task.due_date || '';
+            dueTime.value = task.due_time || '';
+
+            // 保存當前編輯的任務ID
+            currentTaskId = taskId;
+
+            // 顯示模態框
+            modal.style.display = 'block';
+        }
     </script>
 </body>
 </html> 

@@ -10,6 +10,8 @@ import webbrowser
 import socket
 from werkzeug.utils import secure_filename  # 添加這行
 import re
+import sqlite3
+from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)  # 啟用跨域支持
@@ -779,6 +781,151 @@ def run_app():
         print(f"應用程序啟動錯誤: {str(e)}")
         import traceback
         print(traceback.format_exc())
+
+# 初始化任務數據庫
+def init_task_db():
+    conn = sqlite3.connect('tasks.db')
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            file_number TEXT NOT NULL,
+            task_content TEXT NOT NULL,
+            due_date TEXT,
+            due_time TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+# 在應用啟動時初始化數據庫
+init_task_db()
+
+# 添加任務相關的API端點
+@app.route('/api/tasks', methods=['GET'])
+def get_tasks():
+    try:
+        conn = sqlite3.connect('tasks.db')
+        c = conn.cursor()
+        
+        # 獲取所有任務
+        c.execute('SELECT * FROM tasks ORDER BY due_date, due_time')
+        tasks = c.fetchall()
+        
+        # 格式化任務數據
+        formatted_tasks = []
+        for task in tasks:
+            formatted_tasks.append({
+                'id': task[0],
+                'file_number': task[1],
+                'task_content': task[2],
+                'due_date': task[3],
+                'due_time': task[4],
+                'created_at': task[5],
+                'updated_at': task[6]
+            })
+        
+        conn.close()
+        return jsonify({'success': True, 'tasks': formatted_tasks})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/tasks', methods=['POST'])
+def add_task():
+    try:
+        data = request.json
+        file_number = data.get('file_number')
+        task_content = data.get('task_content')
+        due_date = data.get('due_date')
+        due_time = data.get('due_time')
+        
+        if not file_number or not task_content:
+            return jsonify({'success': False, 'error': '檔案編號和任務內容不能為空'})
+        
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        conn = sqlite3.connect('tasks.db')
+        c = conn.cursor()
+        c.execute('''
+            INSERT INTO tasks (file_number, task_content, due_date, due_time, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (file_number, task_content, due_date, due_time, current_time, current_time))
+        
+        conn.commit()
+        task_id = c.lastrowid
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'task': {
+                'id': task_id,
+                'file_number': file_number,
+                'task_content': task_content,
+                'due_date': due_date,
+                'due_time': due_time,
+                'created_at': current_time,
+                'updated_at': current_time
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/tasks/<int:task_id>', methods=['DELETE'])
+def delete_task(task_id):
+    try:
+        conn = sqlite3.connect('tasks.db')
+        c = conn.cursor()
+        c.execute('DELETE FROM tasks WHERE id = ?', (task_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/tasks/<int:task_id>', methods=['PUT'])
+def update_task(task_id):
+    try:
+        data = request.json
+        file_number = data.get('file_number')
+        task_content = data.get('task_content')
+        due_date = data.get('due_date')
+        due_time = data.get('due_time')
+        
+        if not file_number or not task_content:
+            return jsonify({'success': False, 'error': '檔案編號和任務內容不能為空'})
+        
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        conn = sqlite3.connect('tasks.db')
+        c = conn.cursor()
+        c.execute('''
+            UPDATE tasks 
+            SET file_number = ?, 
+                task_content = ?, 
+                due_date = ?, 
+                due_time = ?, 
+                updated_at = ?
+            WHERE id = ?
+        ''', (file_number, task_content, due_date, due_time, current_time, task_id))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'task': {
+                'id': task_id,
+                'file_number': file_number,
+                'task_content': task_content,
+                'due_date': due_date,
+                'due_time': due_time,
+                'updated_at': current_time
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
 if __name__ == '__main__':
     run_app() 
